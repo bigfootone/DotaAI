@@ -67,12 +67,6 @@ function AbilityUsageThink()
   castGravePriority, castGraveTarget = ConsiderShallowGrave();
   castUltPriority, castUltLocation = ConsiderWeave();
   
-  if(castGravePriority ~= nil and castGravePriority > 0)
-    then
-      bot: Action_UseAbilityOnEntity(abilityGrave, castGraveTarget);
-      return;
-  end
-  
   --[[
   if(castGravePriority > castHealPriority and castGravePriority > castSlowPriority and castGravePriority > castUltPriority)
     then
@@ -148,32 +142,17 @@ function ConsiderShallowGrave()
       return BOT_ACTION_DESIRE_NONE, 0;
   end
   
-  -- Gather variables
   local graveRange = abilityGrave: GetCastRange();
   local nearbyAlliedHeroes = bot: GetNearbyHeroes(graveRange + 700, false, BOT_MODE_NONE);
   local nearbyAlliesPower = {};
   
-  -- Local neaby allies and calculate their Hero Power
   for i, v in pairs(nearbyAlliedHeroes)
     do
-      nearbyAlliesPower[nearbyAlliedHeroes[i]] = nearbyAlliedHeroes[i]: GetOffensivePower();
+      --nearbyAlliedHeroes[i] = nearbyAlliedHeroes[i]: GetOffensivePower();
+      nearbyAlliesPower[v] = nearbyAlliedHeroes[i]: GetOffensivePower();
   end
-      
-  -- Sort nearby allies by Hero Power
-  for k, v in sortTable(nearbyAlliesPower, function(t,a,b) return t[b] < t[a] end)
-    do
-      print(k:GetUnitName(),v);
-      local health = k:GetHealth();
-      local maxHealth = k:GetMaxHealth();
-      local healthPercentage = health/maxHealth;
-      if(healthPercentage < 0.1 and k:WasRecentlyDamagedByAnyHero(1))
-        then
-          print("grave");
-          return BOT_ACTION_DESIRE_HIGH, k;
-      end
-  end
-  
-  
+
+print(nearbyAlliesPower[nearbyAlliedHeroes[2]]);
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -184,35 +163,4 @@ end
  
  end 
  
-----------------------------------------------------------------------------------------------------
-
-----------------------------------------------------------------------------------------------------
-
-  -- http://stackoverflow.com/questions/15706270/sort-a-table-in-lua
-function sortTable(t, order)
-
-  local keys = {}
-  for k in pairs(t) 
-    do 
-      keys[#keys+1] = k
-  end
-
-  if order 
-    then 
-      table.sort(keys, function(a,b) return order (t,a,b) end)
-    else
-      table.sort(keys)
-    end
-    
-  local i =0;
-  return function()
-    i= i+1
-    if keys[i]
-      then
-        return keys[i], t[keys[i]]
-      end
-    end
-  end
-
-
 ----------------------------------------------------------------------------------------------------
