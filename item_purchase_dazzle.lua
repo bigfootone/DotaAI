@@ -6,11 +6,11 @@ local itemsToBuy =
   "item_boots",
   "item_branches",
   "item_circlet",
-  --"item_energy_booster",
+  "item_energy_booster",
   "item_cloak",
   "item_shadow_amulet",
   "item_branches",
-  --"item_energy_booster",
+  "item_energy_booster",
   "item_ring_of_health",
   "item_recipe_aether_lens",
   "item_staff_of_wizardry",
@@ -21,7 +21,6 @@ local itemsToBuy =
 
 local startingItems = 
 {
-  "item_courier",
   "item_tango",
   "item_clarity",
   "item_flask",
@@ -37,18 +36,26 @@ function ItemPurchaseThink()
   local nextItem = itemsToBuy[1];
   local nextStartingItem = startingItems[1];
   local team = GetTeam();
-  local enemyTeam = {}
+  local enemyTeam = {};
+  
+ 
+  -- Buy a courier 
+  if(GetNumCouriers() == 0)
+    then
+      bot:ActionImmediate_PurchaseItem("item_courier");
+      print("purchased courier");
+  end
     
   -- Check for 2 Observer Wards in stock
   if( GetItemStockCount("item_ward_observer") >= 2)
-   then
-    for i=numberOfWards,1,-1
-     do
-       if(bot :GetGold() >= GetItemCost("item_ward_observer"))
-        then
-          bot:ActionImmediate_PurchaseItem("item_ward_observer");
-        end
-     end   
+    then
+      for i=numberOfWards,1,-1
+        do
+          if(bot :GetGold() >= GetItemCost("item_ward_observer"))
+            then
+              bot:ActionImmediate_PurchaseItem("item_ward_observer");
+          end
+      end   
   end
    
   
@@ -62,18 +69,39 @@ function ItemPurchaseThink()
   -- Purchase item if bot has enough gold
   if( bot :GetGold() >= GetItemCost (nextItem) and DotaTime() >= 211)
     then
-       bot:ActionImmediate_PurchaseItem(nextItem);
-       print( "item purchased:" .. nextItem);
-       table.remove(itemsToBuy, 1);
-    end
-  
-  
+      if(not IsItemPurchasedFromSecretShop(nextItem))
+        then
+         local itemStatus = bot:ActionImmediate_PurchaseItem(nextItem);
+          if(itemStatus == PURCHASE_ITEM_SUCCESS )
+           then
+              table.remove(itemsToBuy, 1);
+          end     
+      elseif(IsItemPurchasedFromSecretShop(nextItem) == true and bot :GetGold() >= GetItemCost(nextItem))
+        then
+          local courier = GetCourier(0);
+          print("want to buy secret item");
+          if(courier:DistanceFromSecretShop() == 0)
+           then
+             local itemStatus = courier:ActionImmediate_PurchaseItem(nextItem);
+             if(itemStatus == PURCHASE_ITEM_SUCCESS)
+               then
+                  table.remove(itemsToBuy, 1);
+                  bot:ActionImmediate_Courier(courier, COURIER_ACTION_TRANSFER_ITEMS);
+             end
+         else
+            print("should go to secret shop");
+            bot: ActionImmediate_Courier(courier, COURIER_ACTION_SECRET_SHOP);
+         end
+      end
+  end
+
+        
   -- Purchase starting items
-  if(#startingItems >= 1)
+  if(#startingItems >= 1 and DotaTime() < 0)
     then
-      bot:ActionImmediate_PurchaseItem(nextStartingItem);
+      local itemStatus = bot:ActionImmediate_PurchaseItem(nextStartingItem);
       table.remove(startingItems, 1);
-    end
+  end
     
     
   -- Identify enemy heroes
@@ -83,14 +111,14 @@ function ItemPurchaseThink()
         do
          enemyTeam[i-5] = GetSelectedHeroName(i);
       end
-  else if (team == 3)
+  elseif (team == 3)
     then
       for i=1,5,1
         do
           enemyTeam[i] = GetSelectedHeroName(i);
       end
   end
-  end
+
   
   
   -- Check for true sight heroes and remove invis items
@@ -103,13 +131,15 @@ function ItemPurchaseThink()
               if(itemsToBuy[i] == "item_cloak" or itemsToBuy[i] == "item_shadow_amulet")
                 then
                   table.remove(itemsToBuy, i);
-                  print("removed");
+                  print("item removed");
               end
           end
       end
   end
-
+  
 end
+
+-- update to keep important items in inventory
 
 ----------------------------------------------------------------------------------------------------
 
