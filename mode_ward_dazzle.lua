@@ -1,4 +1,5 @@
 	-- Ward location
+	--[[
 local radiantWardingLocations =
 {
 	-2927, 780,		-- radiant start	radiant top ward highground
@@ -26,19 +27,57 @@ local radiantWardingLocations =
 	473, -2620		-- dire endgame	radiant bot shrine
 	-2356, -3541	-- dire endgame	radiant t2 mid behind trees below tower
 	-3832, 3144		-- dire jungle small highground below bounty rune
-}
+}--]]
 
-
+bot = GetBot();
+numberOfWards = 0;
+wardLocation = Vector(0, 0);	
+observerWard = "item_ward_observer";
 
 function  OnStart()
+
 end
 
 function OnEnd()
 end
 
 function GetDesire()
-  return 0.0;
+  
+	for i=0,9,1
+	do
+		local curItem = bot:GetItemInSlot(i);
+		if(curItem ~= nil)
+			then
+				local itemName = curItem:GetName();
+				if(itemName == "item_ward_observer")
+					then
+						numberOfWards = curItem:GetCurrentCharges();
+						observerWard = itemName;
+				end
+		end
+	end
+
+	
+	if(numberOfWards > 1)
+		then	
+			return BOT_MODE_DESIRE_HIGH;
+	elseif(bot:GetActiveMode() == BOT_MODE_WARD and numberOfWards == 1)
+		then	
+			return BOT_MODE_DESIRE_MODERATE;
+	elseif(numberOfWards == 0)
+		then	
+			return 0;
+	end
+	
 end
 
 function Think()
+
+	if(GameTime() < 60)
+		then	
+			wardLocation = Vector(-2927, 780)
+	end
+	
+	bot:UseAbilityOnLocation(observerWard, wardLocation);
+
 end
