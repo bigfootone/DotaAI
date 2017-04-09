@@ -237,6 +237,8 @@ function ConsiderShadowWave()
         end
     end
   end 
+  
+  return BOT_ACTION_DESIRE_NONE, 0;
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -285,6 +287,8 @@ function ConsiderPoisonTouch()
       end
   end
   
+  return BOT_ACTION_DESIRE_NONE, 0;
+  
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -322,7 +326,7 @@ function ConsiderShallowGrave()
       end
   end
   
-  
+  return BOT_ACTION_DESIRE_NONE, 0;
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -338,7 +342,7 @@ end
   end
   
   local weaveCastRange = abilityUlt:GetCastRange();
-  local weaveRadius = 575  -- Work out actual range instead of hard coding
+  local weaveRadius = 575 
   
   if(bot:GetActiveMode() == BOT_MODE_PUSH_TOWER_TOP or
      bot:GetActiveMode() == BOT_MODE_PUSH_TOWER_MID or
@@ -353,7 +357,6 @@ end
 
     local optimalAOE = bot:FindAoELocation(false, true, bot:GetLocation(), weaveCastRange, weaveRadius, 0, 0)
     
-    print(optimalAOE.count);
     
     if(optimalAOE.count > 1)
       then
@@ -362,6 +365,7 @@ end
       
   end 
   
+    return BOT_ACTION_DESIRE_NONE, 0;
  end 
  
 ----------------------------------------------------------------------------------------------------
@@ -415,7 +419,7 @@ function ItemUsageThink()
   -- Use arcane boots if allies need them  
   if(arcaneBoots ~= nil)
     then
-      local nearbyAllies = GetNearbyHeroes(900, false, BOT_MODE_NONE);
+      local nearbyAllies = bot:GetNearbyHeroes(900, false, BOT_MODE_NONE);
       for k, v in pairs(nearbyAllies)
         do
           if(v:GetMaxMana() - v:GetMana() > 135)
@@ -439,7 +443,7 @@ function ItemUsageThink()
   local glamourCape = CanUseItem("item_glimmer_cape");
   if(glamourCape ~= nil )
     then
-      local nearbyAllies = GetNearbyHeroes(1200, false, BOT_MODE_NONE);
+      local nearbyAllies = bot:GetNearbyHeroes(1200, false, BOT_MODE_NONE);
       for k, v in pairs(nearbyAllies)
         do
           if(v:IsStunned() == true)
@@ -451,7 +455,7 @@ function ItemUsageThink()
   
   if(glamourCape ~= nil and (bot:GetActiveMode() == BOT_MODE_RETREAT or bot:GetActiveMode() == BOT_MODE_DEFEND_ALLY))
     then
-      local nearbyAllies = GetNearbyHeroes(1200, false, BOT_MODE_NONE);
+      local nearbyAllies = bot:GetNearbyHeroes(1200, false, BOT_MODE_NONE);
       for k, v in pairs(nearbyAllies)
         do
           if (v:WasRecentlyDamagedByAnyHero(1))
@@ -460,6 +464,27 @@ function ItemUsageThink()
           end
       end
   end
+  
+  local tango = CanUseItem("item_tango");
+  local missingHP = bot:GetMaxHealth() - bot:GetHealth() 
+  local isHealing = bot:HasModifier("modifier_tango_heal");
+
+  if(missingHP > 100 and tango ~= nil and isHealing ~= true)
+    then
+      nearbyTrees = bot:GetNearbyTrees(1000);
+      bot:Action_UseAbilityOnTree(tango, nearbyTrees[1]);
+  end
+  
+  local salve = CanUseItem("item_flask");
+  if(salve ~= nil and missingHP > 350 and bot:WasRecentlyDamagedByAnyHero(4) == false)
+    then
+       nearbyEnemies = bot:GetNearbyHeroes(700, true, BOT_MODE_NONE)
+       if(#nearbyEnemies == 0)
+        then
+          bot:Action_UseAbilityOnEntity(salve, bot);
+       end
+   end
+      
 end
 
 
@@ -493,6 +518,7 @@ function CourierUsageThink()
 
   local courier = GetCourier(0);
   local totalStashValue = 0;
+  local wardsInStash = checkHoldingWards();
      
   -- Value of items in stash      
   for i = 9, 14, 1
@@ -505,38 +531,59 @@ function CourierUsageThink()
   end
   
   -- Courier logic
-  if(GetCourierState(courier) == 1)
+  if(GetCourierState(courier) == 1) -- if courier is at base and we have more than 400 gold of items in stash, use courier
     then
-      if(totalStashValue >= 400)
+      if(totalStashValue >= 400 or wardsInStash > 1)
         then      
           bot:ActionImmediate_Courier(courier, COURIER_ACTION_TAKE_AND_TRANSFER_ITEMS);  
                  
-      elseif(bot:GetCourierValue() > 0)
+      elseif(bot:GetCourierValue() > 0) -- if courier is at base and we have anything in it
         then
           bot:ActionImmediate_Courier(courier, COURIER_ACTION_TRANSFER_ITEMS);
       end
-      
   elseif (GetCourierState(courier) == 2 or
-          GetCourierState(courier) == 4)
+          GetCourierState(courier) == 4) -- if courier is moving and available and we have anything on it, use courier
         then
           if(bot:GetCourierValue() > 0 and IsCourierAvailable())
             then
               bot:ActionImmediate_Courier(courier, COURIER_ACTION_TRANSFER_ITEMS);
           end
-  elseif (GetCourierState(courier) == 0 )
+  elseif (GetCourierState(courier) == 0 and courier:DistanceFromSecretShop() > 300) -- if courier is idle and not at secret shop and we have more than 400 gold in stash, use courier
     then
-      if(totalStashValue >= 400)
+      if(totalStashValue >= 400 or wardsInStash > 1)
         then
           bot:ActionImmediate_Courier(courier, COURIER_ACTION_TAKE_AND_TRANSFER_ITEMS);
       
-      elseif (bot:GetCourierValue() > 0)
+      elseif (bot:GetCourierValue() > 0) -- if courier is idle and we have anything on it, use courier
         then
           bot:ActionImmediate_Courier(courier, COURIER_ACTION_TRANSFER_ITEMS);
       end    
-  end
-  
-  print("State is ", GetCourierState(courier))
-          
+  end         
    
 end
+
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------
+      
+
+function checkHoldingWards()
+
+  numberOfWardsHolding = 0;
+  for i=9,14,1
+    do
+      local curItem = bot:GetItemInSlot(i);
+      if(curItem ~= nil)
+        then  
+          local itemName = curItem:GetName();
+          if(itemName == observerWard)
+            then
+              numberOfWardsHolding = numberOfWardsHolding + 1;
+          end
+      end
+  end
+  
+  return numberOfWardsHolding;
+end
+  
      
